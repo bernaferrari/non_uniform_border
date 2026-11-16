@@ -1,10 +1,7 @@
-library non_uniform_border;
-
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'dart:math' as math;
 
 /// A border that allows different widths for each of its sides,
 /// but uses a single color for all sides.
@@ -12,8 +9,8 @@ import 'dart:math' as math;
 class NonUniformBorder extends ShapeBorder {
   /// Creates a non-uniform border with the specified side widths.
   ///
-  /// The [left], [top], [right], and [bottom] arguments specify the width of the
-  /// corresponding border sides.
+  /// The [leftWidth], [topWidth], [rightWidth], and [bottomWidth] arguments
+  /// specify the width of the corresponding border sides.
   /// The [color] argument specifies the color for all sides.
   const NonUniformBorder({
     this.leftWidth = 1.0,
@@ -23,9 +20,10 @@ class NonUniformBorder extends ShapeBorder {
     this.color = const Color(0xFF000000),
     this.strokeAlign = BorderSide.strokeAlignInside,
     this.borderRadius = BorderRadius.zero,
-  }) : hasUniformWidth = leftWidth == topWidth &&
-            rightWidth == bottomWidth &&
-            leftWidth == rightWidth;
+  }) : hasUniformWidth =
+           leftWidth == topWidth &&
+           rightWidth == bottomWidth &&
+           leftWidth == rightWidth;
 
   final bool hasUniformWidth;
   final double leftWidth;
@@ -38,14 +36,14 @@ class NonUniformBorder extends ShapeBorder {
 
   /// Creates a border whose sides are all the same.
   NonUniformBorder.fromBorderSide(BorderSide side)
-      : hasUniformWidth = true,
-        topWidth = side.width,
-        rightWidth = side.width,
-        bottomWidth = side.width,
-        leftWidth = side.width,
-        color = side.color,
-        strokeAlign = side.strokeAlign,
-        borderRadius = BorderRadius.zero;
+    : hasUniformWidth = true,
+      topWidth = side.width,
+      rightWidth = side.width,
+      bottomWidth = side.width,
+      leftWidth = side.width,
+      color = side.color,
+      strokeAlign = side.strokeAlign,
+      borderRadius = BorderRadius.zero;
 
   /// Creates a border with symmetrical vertical and horizontal sides.
   const NonUniformBorder.symmetric({
@@ -54,22 +52,22 @@ class NonUniformBorder extends ShapeBorder {
     this.color = const Color(0xFF000000),
     this.strokeAlign = BorderSide.strokeAlignInside,
     this.borderRadius = BorderRadius.zero,
-  })  : hasUniformWidth = verticalWidth == horizontalWidth,
-        topWidth = verticalWidth,
-        rightWidth = horizontalWidth,
-        bottomWidth = verticalWidth,
-        leftWidth = horizontalWidth;
+  }) : hasUniformWidth = verticalWidth == horizontalWidth,
+       topWidth = verticalWidth,
+       rightWidth = horizontalWidth,
+       bottomWidth = verticalWidth,
+       leftWidth = horizontalWidth;
 
   const NonUniformBorder.all({
     double width = 1.0,
     this.color = const Color(0xFF000000),
     this.strokeAlign = BorderSide.strokeAlignInside,
     this.borderRadius = BorderRadius.zero,
-  })  : hasUniformWidth = true,
-        topWidth = width,
-        rightWidth = width,
-        bottomWidth = width,
-        leftWidth = width;
+  }) : hasUniformWidth = true,
+       topWidth = width,
+       rightWidth = width,
+       bottomWidth = width,
+       leftWidth = width;
 
   @override
   EdgeInsetsGeometry get dimensions {
@@ -81,7 +79,7 @@ class NonUniformBorder extends ShapeBorder {
         bottomWidth * (1 - (1 + strokeAlign) / 2),
       );
     }
-    return EdgeInsets.all(leftWidth * (1 - strokeAlign));
+    return EdgeInsets.all(leftWidth * (1 - (1 + strokeAlign) / 2));
   }
 
   @override
@@ -96,6 +94,9 @@ class NonUniformBorder extends ShapeBorder {
       rightWidth: rightWidth * t,
       bottomWidth: bottomWidth * t,
       leftWidth: leftWidth * t,
+      color: color,
+      strokeAlign: strokeAlign,
+      borderRadius: borderRadius * t,
     );
   }
 
@@ -123,16 +124,15 @@ class NonUniformBorder extends ShapeBorder {
     Color? color,
     double? strokeAlign,
     BorderRadius? borderRadius,
-  }) =>
-      NonUniformBorder(
-        leftWidth: leftWidth ?? this.leftWidth,
-        topWidth: topWidth ?? this.topWidth,
-        rightWidth: rightWidth ?? this.rightWidth,
-        bottomWidth: bottomWidth ?? this.bottomWidth,
-        color: color ?? this.color,
-        strokeAlign: strokeAlign ?? this.strokeAlign,
-        borderRadius: borderRadius ?? this.borderRadius,
-      );
+  }) => NonUniformBorder(
+    leftWidth: leftWidth ?? this.leftWidth,
+    topWidth: topWidth ?? this.topWidth,
+    rightWidth: rightWidth ?? this.rightWidth,
+    bottomWidth: bottomWidth ?? this.bottomWidth,
+    color: color ?? this.color,
+    strokeAlign: strokeAlign ?? this.strokeAlign,
+    borderRadius: borderRadius ?? this.borderRadius,
+  );
 
   /// Linearly interpolate between two borders.
   ///
@@ -141,7 +141,10 @@ class NonUniformBorder extends ShapeBorder {
   ///
   /// {@macro dart.ui.shadow.lerp}
   static NonUniformBorder? lerp(
-      NonUniformBorder? a, NonUniformBorder? b, double t) {
+    NonUniformBorder? a,
+    NonUniformBorder? b,
+    double t,
+  ) {
     if (a == null && b == null) {
       return null;
     }
@@ -166,13 +169,19 @@ class NonUniformBorder extends ShapeBorder {
   bool get preferPaintInterior => true;
 
   @override
-  void paintInterior(Canvas canvas, Rect rect, Paint paint,
-      {TextDirection? textDirection}) {
+  void paintInterior(
+    Canvas canvas,
+    Rect rect,
+    Paint paint, {
+    TextDirection? textDirection,
+  }) {
     if (borderRadius == BorderRadius.zero) {
       canvas.drawRect(rect, paint);
     } else {
       canvas.drawRRect(
-          borderRadius.resolve(textDirection).toRRect(rect), paint);
+        borderRadius.resolve(textDirection).toRRect(rect),
+        paint,
+      );
     }
   }
 
@@ -192,8 +201,9 @@ class NonUniformBorder extends ShapeBorder {
       drawMultipleWidth(canvas, borderRect);
     } else {
       final Paint paint = Paint()..color = color;
-      final RRect inner =
-          borderRect.deflate(leftWidth * (1 - (1 + strokeAlign) / 2));
+      final RRect inner = borderRect.deflate(
+        leftWidth * (1 - (1 + strokeAlign) / 2),
+      );
       final RRect outer = borderRect.inflate(leftWidth * (1 + strokeAlign) / 2);
       canvas.drawDRRect(outer, inner, paint);
     }
@@ -203,7 +213,8 @@ class NonUniformBorder extends ShapeBorder {
   /// calling [Canvas.drawDRRect] which gets the difference
   /// between two rectangles.
   ///
-  /// The process is similar to [strokeInset] and [strokeOutset].
+  /// The process is similar to [BorderSide.strokeInset] and
+  /// [BorderSide.strokeOutset].
   void drawMultipleWidth(Canvas canvas, RRect borderRect) {
     final Paint paint = Paint()..color = color;
 
@@ -244,8 +255,15 @@ class NonUniformBorder extends ShapeBorder {
   }
 
   @override
-  int get hashCode => Object.hash(color, strokeAlign, borderRadius, topWidth,
-      rightWidth, bottomWidth, leftWidth);
+  int get hashCode => Object.hash(
+    color,
+    strokeAlign,
+    borderRadius,
+    topWidth,
+    rightWidth,
+    bottomWidth,
+    leftWidth,
+  );
 
   @override
   String toString() {
@@ -258,54 +276,14 @@ class NonUniformBorder extends ShapeBorder {
   @override
   Path getInnerPath(Rect rect, {TextDirection? textDirection}) {
     final RRect borderRect = borderRadius.resolve(textDirection).toRRect(rect);
-    final RRect adjustedRect = borderRect.deflate(leftWidth);
+    final RRect adjustedRect = dimensions
+        .resolve(textDirection)
+        .deflateRRect(borderRect);
     return Path()..addRRect(adjustedRect);
   }
 
   @override
   Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
     return Path()..addRRect(borderRadius.resolve(textDirection).toRRect(rect));
-  }
-}
-
-/// Expand inflate;
-extension _RRectInflation on EdgeInsets {
-  /// Similar to [RRect.inflate] but receives a [Rect].
-  RRect inflateRRect(RRect rect) {
-    return RRect.fromLTRBAndCorners(
-      rect.left - left,
-      rect.top - top,
-      rect.right + right,
-      rect.bottom + bottom,
-      topLeft: positiveRadius(rect.tlRadius + Radius.elliptical(left, top)),
-      topRight: positiveRadius(rect.trRadius + Radius.elliptical(right, top)),
-      bottomRight:
-          positiveRadius(rect.brRadius + Radius.elliptical(right, bottom)),
-      bottomLeft:
-          positiveRadius(rect.blRadius + Radius.elliptical(left, bottom)),
-    );
-  }
-
-  /// Similar to [RRect.deflate] but receives a [Rect].
-  RRect deflateRRect(RRect rect) {
-    return RRect.fromLTRBAndCorners(
-      rect.left + left,
-      rect.top + top,
-      rect.right - right,
-      rect.bottom - bottom,
-      topLeft: positiveRadius(rect.tlRadius - Radius.elliptical(left, top)),
-      topRight: positiveRadius(rect.trRadius - Radius.elliptical(right, top)),
-      bottomRight:
-          positiveRadius(rect.brRadius - Radius.elliptical(right, bottom)),
-      bottomLeft:
-          positiveRadius(rect.blRadius - Radius.elliptical(left, bottom)),
-    );
-  }
-
-  Radius positiveRadius(Radius radius) {
-    if (radius.x.isNegative || radius.y.isNegative) {
-      return Radius.elliptical(math.max(radius.x, 0), math.max(radius.y, 0));
-    }
-    return radius;
   }
 }

@@ -14,7 +14,7 @@ In the `pubspec.yaml` of your flutter project, add the following dependency:
 
 ```yaml
 dependencies:
-  non_uniform_border: ^1.0.0
+  non_uniform_border: ^1.0.1
 ```
 
 ## Usage
@@ -26,13 +26,13 @@ widths and color:
 import 'package:non_uniform_border/non_uniform_border.dart';
 
 // Create a non-uniform border with different widths and radius.
-final shapeBorder = NonUniformBorder(
+const shapeBorder = NonUniformBorder(
   leftWidth: 4,
   rightWidth: 8,
   topWidth: 12,
   bottomWidth: 16,
   color: Color(0xfffbbf24),
-  side: BorderSide.strokeAlignCenter,
+  strokeAlign: BorderSide.strokeAlignCenter,
   borderRadius: BorderRadius.horizontal(
     left: Radius.circular(50),
     right: Radius.circular(100),
@@ -50,14 +50,14 @@ Container(
 );
 
 // Create a symmetrical border with different widths for each side.
-NonUniformBorder.symmetrical(
+const NonUniformBorder.symmetric(
   verticalWidth: 8,
   horizontalWidth: 4,
   color: Color(0xffec4899),
 );
 
-// Create an uniform border.
-NonUniformBorder.all(
+// Create a uniform border.
+const NonUniformBorder.all(
   width: 2,
   color: Color(0xff00ff00),
 );

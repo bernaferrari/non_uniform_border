@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:non_uniform_border/non_uniform_border.dart';
 
 // Inspired by Flutter's BorderSide.0.test
@@ -9,7 +9,14 @@ class StrokeAlignApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(home: StrokeAlignExample());
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'NonUniformBorder Example',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF00B4FC)),
+      ),
+      home: const StrokeAlignExample(),
+    );
   }
 }
 
@@ -23,12 +30,15 @@ class StrokeAlignExample extends StatefulWidget {
 class _StrokeAlignExampleState extends State<StrokeAlignExample>
     with TickerProviderStateMixin {
   late final AnimationController animation;
+  bool _isPlaying = true;
 
   @override
   void initState() {
     super.initState();
-    animation =
-        AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    animation = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
     animation.repeat(reverse: true);
     animation.addListener(_markDirty);
   }
@@ -43,14 +53,35 @@ class _StrokeAlignExampleState extends State<StrokeAlignExample>
     setState(() {});
   }
 
+  void _togglePlayback() {
+    setState(() {
+      if (_isPlaying) {
+        animation.stop();
+      } else {
+        animation.repeat(reverse: true);
+      }
+      _isPlaying = !_isPlaying;
+    });
+  }
+
   static const double borderWidth = 10;
   static const double cornerRadius = 10;
   static const Color borderColor = Color(0x8000b4fc);
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      child: Center(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('NonUniformBorder'),
+        actions: <Widget>[
+          IconButton(
+            onPressed: _togglePlayback,
+            tooltip: _isPlaying ? 'Pause' : 'Play',
+            icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+          ),
+        ],
+      ),
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
@@ -65,10 +96,12 @@ class _StrokeAlignExampleState extends State<StrokeAlignExample>
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(cornerRadius * animation.value * 2),
                   topRight: Radius.circular(cornerRadius * animation.value * 2),
-                  bottomLeft:
-                      Radius.circular(cornerRadius * animation.value / 2),
-                  bottomRight:
-                      Radius.circular(cornerRadius * animation.value / 2),
+                  bottomLeft: Radius.circular(
+                    cornerRadius * animation.value / 2,
+                  ),
+                  bottomRight: Radius.circular(
+                    cornerRadius * animation.value / 2,
+                  ),
                 ),
               ),
             ),
@@ -97,35 +130,39 @@ class _StrokeAlignExampleState extends State<StrokeAlignExample>
               ],
             ),
             Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: <Widget>[
-                  BorderedBox(
-                    shape: NonUniformBorder(
-                        color: borderColor,
-                        leftWidth: borderWidth,
-                        rightWidth: borderWidth * animation.value * 2,
-                        topWidth: borderWidth * animation.value,
-                        bottomWidth: borderWidth * animation.value * 2,
-                        borderRadius: BorderRadius.circular(cornerRadius),
-                        strokeAlign: 0),
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: <Widget>[
+                BorderedBox(
+                  shape: NonUniformBorder(
+                    color: borderColor,
+                    leftWidth: borderWidth,
+                    rightWidth: borderWidth * animation.value * 2,
+                    topWidth: borderWidth * animation.value,
+                    bottomWidth: borderWidth * animation.value * 2,
+                    borderRadius: BorderRadius.circular(cornerRadius),
+                    strokeAlign: 0,
                   ),
-                  BorderedBox(
-                    shape: NonUniformBorder(
-                      color: borderColor,
-                      leftWidth: borderWidth,
-                      rightWidth: borderWidth,
-                      topWidth: borderWidth * animation.value * 2,
-                      bottomWidth: borderWidth * animation.value * 2,
-                      strokeAlign: 1,
-                      borderRadius: BorderRadius.only(
-                        topLeft:
-                            Radius.circular(cornerRadius * animation.value * 2),
-                        topRight:
-                            Radius.circular(cornerRadius * animation.value * 2),
+                ),
+                BorderedBox(
+                  shape: NonUniformBorder(
+                    color: borderColor,
+                    leftWidth: borderWidth,
+                    rightWidth: borderWidth,
+                    topWidth: borderWidth * animation.value * 2,
+                    bottomWidth: borderWidth * animation.value * 2,
+                    strokeAlign: 1,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(
+                        cornerRadius * animation.value * 2,
+                      ),
+                      topRight: Radius.circular(
+                        cornerRadius * animation.value * 2,
                       ),
                     ),
                   ),
-                ]),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -134,10 +171,7 @@ class _StrokeAlignExampleState extends State<StrokeAlignExample>
 }
 
 class BorderedBox extends StatelessWidget {
-  const BorderedBox({
-    super.key,
-    required this.shape,
-  });
+  const BorderedBox({super.key, required this.shape});
 
   final ShapeBorder shape;
 
@@ -146,10 +180,7 @@ class BorderedBox extends StatelessWidget {
     return Container(
       width: 100,
       height: 50,
-      decoration: ShapeDecoration(
-        color: const Color(0xff012677),
-        shape: shape,
-      ),
+      decoration: ShapeDecoration(color: const Color(0xff012677), shape: shape),
     );
   }
 }
