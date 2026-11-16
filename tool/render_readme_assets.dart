@@ -634,26 +634,24 @@ void main() {
       }
     }
 
-    // 3. Example app 5-box geometric sweep (`build/readme_frames/example`).
+    // 3. Clean 3-column geometry & strokeAlign showcase (`build/readme_frames/example`).
     {
       final outDir = Directory('build/readme_frames/example')
         ..createSync(recursive: true);
 
       const width = 760.0;
-      const height = 420.0;
+      const height = 256.0;
       const dpr = 2.0;
       const frames = 90;
 
       const cardRect = ui.Rect.fromLTWH(16, 16, width - 32, height - 32);
       const fillCol = ui.Color(0xFF012677);
-      const borderCol = ui.Color(0x9900B4FC);
+      const borderCol = ui.Color(0xFF00B4FC);
 
       for (var frame = 0; frame < frames; frame++) {
         final t = frame / frames;
-        final anim = 0.5 - 0.5 * math.cos(2 * math.pi * t);
-        const bw = 10.0;
-        const cr = 10.0;
-        final align = (anim * 2) - 1;
+        final wave = _easeInOutCubic(0.5 - 0.5 * math.cos(2 * math.pi * t));
+        final align = -1.0 + 2.0 * wave;
         final alignDisplay = align.abs() < 0.005 ? 0.0 : align;
 
         final recorder = ui.PictureRecorder();
@@ -665,108 +663,82 @@ void main() {
         _drawCardChrome(
           canvas,
           cardRect,
-          'Live Geometry Sweep (example/lib/main.dart)',
-          'Animating side widths, per-corner radii, and strokeAlign',
+          'Widths, Radii & Stroke Alignment',
+          'Each property animates independently with zero Border crashes',
         );
 
-        final specs = <(ui.Offset, NonUniformBorder, String, double)>[
+        final lr = ui.lerpDouble(2.0, 15.0, wave)!;
+        final tb = ui.lerpDouble(15.0, 2.0, wave)!;
+        final rA = ui.lerpDouble(22.0, 4.0, wave)!;
+        final rB = ui.lerpDouble(4.0, 22.0, wave)!;
+
+        final specs = <(double, String, NonUniformBorder, String)>[
           (
-            ui.Offset(width / 2, 114),
-            NonUniformBorder(
+            154.0,
+            'Side Widths',
+            NonUniformBorder.symmetric(
+              horizontalWidth: lr,
+              verticalWidth: tb,
               color: borderCol,
-              leftWidth: bw,
-              rightWidth: bw,
-              topWidth: bw * anim * 2,
-              bottomWidth: bw * anim * 2,
-              strokeAlign: align,
+              strokeAlign: BorderSide.strokeAlignInside,
+              borderRadius: const BorderRadius.all(Radius.circular(14)),
+            ),
+            'H:${lr.round()}  V:${tb.round()}',
+          ),
+          (
+            380.0,
+            'Mixed Radii',
+            NonUniformBorder(
+              leftWidth: 3.5,
+              topWidth: 10.0,
+              rightWidth: 3.5,
+              bottomWidth: 10.0,
+              color: borderCol,
+              strokeAlign: BorderSide.strokeAlignInside,
               borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(cr * anim * 2),
-                topRight: Radius.circular(cr * anim * 2),
-                bottomLeft: Radius.circular(cr * anim / 2),
-                bottomRight: Radius.circular(cr * anim / 2),
+                topLeft: Radius.circular(rA),
+                bottomRight: Radius.circular(rA),
+                topRight: Radius.circular(rB),
+                bottomLeft: Radius.circular(rB),
               ),
             ),
-            'align ${alignDisplay.toStringAsFixed(1)} · mixed radii',
-            156,
+            'TL/BR:${rA.round()}  TR/BL:${rB.round()}',
           ),
           (
-            const ui.Offset(216, 222),
-            NonUniformBorder(
-              color: borderCol,
-              leftWidth: bw * anim * 2,
-              rightWidth: bw * anim * 2,
-              topWidth: bw,
-              bottomWidth: bw,
+            606.0,
+            'Stroke Alignment',
+            NonUniformBorder.symmetric(
+              horizontalWidth: 4.0,
+              verticalWidth: 10.0,
+              color: borderCol.withValues(alpha: 0.72),
               strokeAlign: align,
+              borderRadius: const BorderRadius.all(Radius.circular(14)),
             ),
-            'L/R sweep · align ${alignDisplay.toStringAsFixed(1)}',
-            262,
-          ),
-          (
-            const ui.Offset(544, 222),
-            NonUniformBorder(
-              color: borderCol,
-              leftWidth: bw,
-              rightWidth: bw * anim * 2,
-              topWidth: bw * anim * 2,
-              bottomWidth: bw,
-            ),
-            'R/T sweep · inside',
-            262,
-          ),
-          (
-            const ui.Offset(216, 326),
-            NonUniformBorder(
-              color: borderCol,
-              leftWidth: bw,
-              rightWidth: bw * anim * 2,
-              topWidth: bw * anim,
-              bottomWidth: bw * anim * 2,
-              borderRadius: BorderRadius.circular(cr),
-              strokeAlign: 0,
-            ),
-            'center (0) · uniform radius',
-            374,
-          ),
-          (
-            const ui.Offset(544, 326),
-            NonUniformBorder(
-              color: borderCol,
-              leftWidth: bw,
-              rightWidth: bw,
-              topWidth: bw * anim * 2,
-              bottomWidth: bw * anim * 2,
-              strokeAlign: 1,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(cr * anim * 2),
-                topRight: Radius.circular(cr * anim * 2),
-              ),
-            ),
-            'outside (+1) · top radii',
-            374,
+            'strokeAlign: ${alignDisplay.toStringAsFixed(1)}',
           ),
         ];
 
-        for (final (center, shape, label, labelTop) in specs) {
-          final box = ui.Rect.fromCenter(
-            center: center,
-            width: 112,
-            height: 48,
-          );
-          _paintBorderBox(canvas, box, shape, fillCol);
+        for (final (cx, label, shape, pill) in specs) {
           _drawText(
             canvas,
             label,
-            ui.Offset(center.dx, labelTop),
+            ui.Offset(cx, 74),
             align: ui.TextAlign.center,
-            maxWidth: 210,
+            maxWidth: 180,
             style: ui.TextStyle(
-              fontFamily: 'StudioMono',
-              fontSize: 10.0,
-              fontWeight: ui.FontWeight.w600,
-              color: _inkMuted,
+              fontFamily: 'StudioSans',
+              fontSize: 12.5,
+              fontWeight: ui.FontWeight.w700,
+              color: _ink,
             ),
           );
+          final box = ui.Rect.fromCenter(
+            center: ui.Offset(cx, 138),
+            width: 128,
+            height: 60,
+          );
+          _paintBorderBox(canvas, box, shape, fillCol);
+          _drawPill(canvas, cx: cx, top: 196, text: pill);
         }
 
         final name = frame.toString().padLeft(4, '0');
