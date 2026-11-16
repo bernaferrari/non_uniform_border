@@ -64,6 +64,14 @@ Widget example = DecoratedBox(
 - **`copyWith(...)`** — derive variations cleanly (for example, animating a 3D button press with `bottomWidth`).
 - **Smooth Animations** — `ShapeBorder.lerp`, `AnimatedContainer`, and `ShapeBorderTween` smoothly interpolate side widths, `borderRadius`, `strokeAlign`, and `color`.
 
+## Example
+
+The bundled sample app in [`example/`](example/lib/main.dart) sweeps side widths, per-corner radii, and `strokeAlign` together:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bernaferrari/non_uniform_border/main/assets/example.webp" width="680" alt="Animated example showing NonUniformBorder sweeping widths, corner radii, and strokeAlign">
+</p>
+
 ## Contributions
 
 Issues and pull requests are welcome on [GitHub](https://github.com/bernaferrari/non_uniform_border).
