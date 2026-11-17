@@ -3,5 +3,12 @@ analyzer:
     - build/**
 include: package:flutter_lints/flutter.yaml
 
+linter:
+  rules:
+    - use_declaring_parameters
+    - unnecessary_primary_constructor_body
+    - unnecessary_type_name_in_constructor
+    - unnecessary_const_in_enum_constructor
+
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

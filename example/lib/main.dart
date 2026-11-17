@@ -4,9 +4,7 @@ import 'package:non_uniform_border/non_uniform_border.dart';
 // Inspired by Flutter's BorderSide.0.test
 void main() => runApp(const StrokeAlignApp());
 
-class StrokeAlignApp extends StatelessWidget {
-  const StrokeAlignApp({super.key});
-
+class const StrokeAlignApp({super.key}) extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -20,9 +18,7 @@ class StrokeAlignApp extends StatelessWidget {
   }
 }
 
-class StrokeAlignExample extends StatefulWidget {
-  const StrokeAlignExample({super.key});
-
+class const StrokeAlignExample({super.key}) extends StatefulWidget {
   @override
   State<StrokeAlignExample> createState() => _StrokeAlignExampleState();
 }
@@ -170,11 +166,8 @@ class _StrokeAlignExampleState extends State<StrokeAlignExample>
   }
 }
 
-class BorderedBox extends StatelessWidget {
-  const BorderedBox({super.key, required this.shape});
-
-  final ShapeBorder shape;
-
+class const BorderedBox({super.key, required final ShapeBorder shape})
+    extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(

@@ -6,68 +6,69 @@ import 'package:flutter/widgets.dart';
 /// A border that allows different widths for each of its sides,
 /// but uses a single color for all sides.
 /// This works like [Border], but is guaranteed to be runtime safe.
-class NonUniformBorder extends ShapeBorder {
-  /// Creates a non-uniform border with the specified side widths.
-  ///
-  /// The [leftWidth], [topWidth], [rightWidth], and [bottomWidth] arguments
-  /// specify the width of the corresponding border sides.
-  /// The [color] argument specifies the color for all sides.
-  const NonUniformBorder({
-    this.leftWidth = 1.0,
-    this.topWidth = 1.0,
-    this.rightWidth = 1.0,
-    this.bottomWidth = 1.0,
-    this.color = const Color(0xFF000000),
-    this.strokeAlign = BorderSide.strokeAlignInside,
-    this.borderRadius = BorderRadius.zero,
-  }) : hasUniformWidth =
-           leftWidth == topWidth &&
-           rightWidth == bottomWidth &&
-           leftWidth == rightWidth;
-
+///
+/// The [leftWidth], [topWidth], [rightWidth], and [bottomWidth] arguments
+/// specify the width of the corresponding border sides.
+/// The [color] argument specifies the color for all sides.
+class const NonUniformBorder({
+  final double leftWidth = 1.0,
+  final double topWidth = 1.0,
+  final double rightWidth = 1.0,
+  final double bottomWidth = 1.0,
+  final Color color = const Color(0xFF000000),
+  final double strokeAlign = BorderSide.strokeAlignInside,
+  final BorderRadius borderRadius = BorderRadius.zero,
+}) extends ShapeBorder {
   final bool hasUniformWidth;
-  final double leftWidth;
-  final double topWidth;
-  final double rightWidth;
-  final double bottomWidth;
-  final Color color;
-  final double strokeAlign;
-  final BorderRadius borderRadius;
+
+  this
+    : hasUniformWidth =
+          leftWidth == topWidth &&
+          rightWidth == bottomWidth &&
+          leftWidth == rightWidth;
 
   /// Creates a border whose sides are all the same.
-  NonUniformBorder.fromBorderSide(BorderSide side)
-    : hasUniformWidth = true,
-      topWidth = side.width,
-      rightWidth = side.width,
-      bottomWidth = side.width,
-      leftWidth = side.width,
-      color = side.color,
-      strokeAlign = side.strokeAlign,
-      borderRadius = BorderRadius.zero;
+  factory fromBorderSide(BorderSide side) => NonUniformBorder(
+    leftWidth: side.width,
+    topWidth: side.width,
+    rightWidth: side.width,
+    bottomWidth: side.width,
+    color: side.color,
+    strokeAlign: side.strokeAlign,
+  );
 
   /// Creates a border with symmetrical vertical and horizontal sides.
-  const NonUniformBorder.symmetric({
+  const new symmetric({
     double verticalWidth = 1.0,
     double horizontalWidth = 1.0,
-    this.color = const Color(0xFF000000),
-    this.strokeAlign = BorderSide.strokeAlignInside,
-    this.borderRadius = BorderRadius.zero,
-  }) : hasUniformWidth = verticalWidth == horizontalWidth,
-       topWidth = verticalWidth,
-       rightWidth = horizontalWidth,
-       bottomWidth = verticalWidth,
-       leftWidth = horizontalWidth;
+    Color color = const Color(0xFF000000),
+    double strokeAlign = BorderSide.strokeAlignInside,
+    BorderRadius borderRadius = BorderRadius.zero,
+  }) : this(
+         leftWidth: horizontalWidth,
+         topWidth: verticalWidth,
+         rightWidth: horizontalWidth,
+         bottomWidth: verticalWidth,
+         color: color,
+         strokeAlign: strokeAlign,
+         borderRadius: borderRadius,
+       );
 
-  const NonUniformBorder.all({
+  /// Creates a border whose four sides all have the same [width].
+  const new all({
     double width = 1.0,
-    this.color = const Color(0xFF000000),
-    this.strokeAlign = BorderSide.strokeAlignInside,
-    this.borderRadius = BorderRadius.zero,
-  }) : hasUniformWidth = true,
-       topWidth = width,
-       rightWidth = width,
-       bottomWidth = width,
-       leftWidth = width;
+    Color color = const Color(0xFF000000),
+    double strokeAlign = BorderSide.strokeAlignInside,
+    BorderRadius borderRadius = BorderRadius.zero,
+  }) : this(
+         leftWidth: width,
+         topWidth: width,
+         rightWidth: width,
+         bottomWidth: width,
+         color: color,
+         strokeAlign: strokeAlign,
+         borderRadius: borderRadius,
+       );
 
   @override
   EdgeInsetsGeometry get dimensions {

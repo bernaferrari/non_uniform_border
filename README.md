@@ -10,7 +10,7 @@ A lightweight `ShapeBorder` for Flutter that supports **independent side widths*
 > `BoxDecoration(border: Border(...), borderRadius: ...)` asserts at runtime unless every side has the same width and color. `NonUniformBorder` is a drop-in `ShapeBorder` for `ShapeDecoration` (and `Container` / `AnimatedContainer`) with zero crashes.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bernaferrari/non_uniform_border/main/assets/showcase.webp" width="680" alt="NonUniformBorder showcase of a tactile 3D button and an active selection accent bar">
+  <img src="https://raw.githubusercontent.com/bernaferrari/non_uniform_border/main/assets/showcase.webp" width="680" alt="NonUniformBorder showcase of a keycap button pressed via bottomWidth and a selection rail animated with lerp">
 </p>
 
 ## Getting Started
@@ -67,7 +67,7 @@ Widget example = DecoratedBox(
 ## Properties in Motion
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bernaferrari/non_uniform_border/main/assets/example.webp" width="680" alt="Animated comparison of independent side widths, mixed corner radii, and strokeAlign">
+  <img src="https://raw.githubusercontent.com/bernaferrari/non_uniform_border/main/assets/example.webp" width="680" alt="Animated specimens of independent side widths, per-corner radii, and strokeAlign">
 </p>
 
 ## Contributions

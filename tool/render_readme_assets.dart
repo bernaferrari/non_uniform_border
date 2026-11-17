@@ -3,7 +3,8 @@
 //   - build/readme_frames/showcase/*.png -> assets/showcase.webp
 //   - build/readme_frames/example/*.png  -> assets/example.webp
 //
-// Run via `./tool/generate_assets.sh` (requires `flutter`, `ffmpeg`, and `img2webp`).
+// Run via `./tool/generate_assets.sh` (requires macOS system fonts, `flutter`,
+// `ffmpeg`, and `img2webp`).
 
 import 'dart:io';
 import 'dart:math' as math;
@@ -14,126 +15,268 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:non_uniform_border/non_uniform_border.dart';
 
-const ui.Color _paper = ui.Color(0xFFF6F4EE);
-const ui.Color _cardBg = ui.Color(0xFFFCFAF5);
-const ui.Color _borderCol = ui.Color(0xFFE0DDD4);
-const ui.Color _ink = ui.Color(0xFF191918);
-const ui.Color _inkMuted = ui.Color(0xFF6B6A66);
+const ui.Color _paper = ui.Color(0xFFF4F1EA);
+const ui.Color _surface = ui.Color(0xFFFBFAF6);
+const ui.Color _hairline = ui.Color(0xFFDDD8CC);
+const ui.Color _gridDot = ui.Color(0xFFDCD6C9);
+const ui.Color _ink = ui.Color(0xFF1B1A17);
+const ui.Color _muted = ui.Color(0xFF8A857A);
+const ui.Color _white = ui.Color(0xFFFFFFFF);
 
-const ui.Color _obsidian = ui.Color(0xFF12141A);
-const ui.Color _obsidianBorder = ui.Color(0xFF2A2E39);
-const ui.Color _cream = ui.Color(0xFFF6F4EE);
-const ui.Color _mutedCream = ui.Color(0xFF9EA0A8);
+const ui.Color _accent = ui.Color(0xFFE0522C);
+const ui.Color _accentDeep = ui.Color(0xFF9E3418);
+const ui.Color _accentTint = ui.Color(0xFFFBE7DF);
 
-void _drawText(
+const double _width = 760.0;
+const double _dpr = 2.0;
+const double _sheetRadius = 22.0;
+const double _gridStep = 14.0;
+const double _pad = 24.0;
+const double _footerHeight = 44.0;
+const int _frames = 120;
+
+typedef _Span = (String, ui.TextStyle);
+
+ui.TextStyle _style(
+  String family,
+  double size,
+  double weight,
+  ui.Color color, {
+  double letterSpacing = 0,
+}) {
+  return ui.TextStyle(
+    fontFamily: family,
+    fontSize: size,
+    color: color,
+    letterSpacing: letterSpacing,
+    fontWeight: ui.FontWeight.values[(weight / 100).round() - 1],
+    fontVariations: [
+      ui.FontVariation('wght', weight),
+      ui.FontVariation('opsz', size),
+    ],
+  );
+}
+
+ui.TextStyle _serif(double size, {ui.Color color = _ink}) =>
+    _style('Serif', size, 500, color, letterSpacing: -size * 0.012);
+
+ui.TextStyle _sans(double size, {double weight = 450, ui.Color color = _ink}) =>
+    _style('Sans', size, weight, color, letterSpacing: -size * 0.008);
+
+ui.TextStyle _mono(double size, {double weight = 450, ui.Color color = _ink}) =>
+    _style('Mono', size, weight, color);
+
+enum _Anchor { start, center, end }
+
+/// Draws [spans] on a single line with its alphabetic baseline at [baseline].
+double _text(
   ui.Canvas canvas,
-  String text,
-  ui.Offset offset, {
-  required ui.TextStyle style,
-  ui.TextAlign align = ui.TextAlign.left,
-  double maxWidth = 520,
+  List<_Span> spans, {
+  required double x,
+  required double baseline,
+  _Anchor anchor = _Anchor.start,
 }) {
-  final builder =
-      ui.ParagraphBuilder(
-          ui.ParagraphStyle(textAlign: align, maxLines: 2, ellipsis: '…'),
-        )
-        ..pushStyle(style)
-        ..addText(text);
+  final builder = ui.ParagraphBuilder(ui.ParagraphStyle());
+  for (final (text, style) in spans) {
+    builder
+      ..pushStyle(style)
+      ..addText(text)
+      ..pop();
+  }
   final paragraph = builder.build()
-    ..layout(ui.ParagraphConstraints(width: maxWidth));
-  final dx = switch (align) {
-    ui.TextAlign.center => offset.dx - maxWidth / 2,
-    ui.TextAlign.right => offset.dx - maxWidth,
-    _ => offset.dx,
+    ..layout(const ui.ParagraphConstraints(width: 2000));
+  final width = paragraph.maxIntrinsicWidth;
+  final dx = switch (anchor) {
+    _Anchor.start => x,
+    _Anchor.center => x - width / 2,
+    _Anchor.end => x - width,
   };
-  canvas.drawParagraph(paragraph, ui.Offset(dx, offset.dy));
+  canvas.drawParagraph(
+    paragraph,
+    ui.Offset(dx, baseline - paragraph.alphabeticBaseline),
+  );
+  paragraph.dispose();
+  return width;
 }
 
-void _drawPill(
+String _fixed(double value, int digits) {
+  final text = value.toStringAsFixed(digits);
+  final isNegativeZero = double.parse(text) == 0 && text.startsWith('-');
+  return isNegativeZero ? text.substring(1) : text;
+}
+
+ui.Paint _stroke(ui.Color color, [double width = 1.0]) => ui.Paint()
+  ..style = ui.PaintingStyle.stroke
+  ..strokeWidth = width
+  ..color = color;
+
+void _paintSheet(ui.Canvas canvas, ui.Size size) {
+  final sheet = ui.RRect.fromRectAndRadius(
+    ui.Offset.zero & size,
+    const ui.Radius.circular(_sheetRadius),
+  ).deflate(0.5);
+  canvas.drawRRect(sheet, ui.Paint()..color = _paper);
+  canvas.drawRRect(sheet, _stroke(_hairline));
+}
+
+/// Dotted drafting grid, clipped to [area], that marks where specimens live.
+void _paintStage(ui.Canvas canvas, ui.Rect area) {
+  final dot = ui.Paint()..color = _gridDot;
+  canvas.save();
+  canvas.clipRect(area);
+  final startX = (area.left / _gridStep).ceil() * _gridStep;
+  final startY = (area.top / _gridStep).ceil() * _gridStep;
+  for (var x = startX; x <= area.right; x += _gridStep) {
+    for (var y = startY; y <= area.bottom; y += _gridStep) {
+      canvas.drawCircle(ui.Offset(x, y), 0.75, dot);
+    }
+  }
+  canvas.restore();
+}
+
+/// Splits a sheet into columns with header, dotted stage, and code footer.
+List<ui.Rect> _paintCells(
+  ui.Canvas canvas,
+  ui.Size size,
+  List<(String index, String api, String title)> headers,
+) {
+  _paintSheet(canvas, size);
+  final cellWidth = size.width / headers.length;
+  final footerTop = size.height - _footerHeight;
+
+  final footer = ui.Path()
+    ..addRRect(
+      ui.RRect.fromLTRBAndCorners(
+        0.5,
+        footerTop,
+        size.width - 0.5,
+        size.height - 0.5,
+        bottomLeft: const ui.Radius.circular(_sheetRadius),
+        bottomRight: const ui.Radius.circular(_sheetRadius),
+      ),
+    );
+  canvas.drawPath(footer, ui.Paint()..color = _surface);
+  canvas.drawLine(
+    ui.Offset(0.5, footerTop),
+    ui.Offset(size.width - 0.5, footerTop),
+    _stroke(_hairline),
+  );
+
+  final cells = <ui.Rect>[];
+  for (var i = 0; i < headers.length; i++) {
+    final cell = ui.Rect.fromLTWH(i * cellWidth, 0, cellWidth, size.height);
+    cells.add(cell);
+    if (i > 0) {
+      canvas.drawLine(
+        ui.Offset(cell.left, 0.5),
+        ui.Offset(cell.left, size.height - 0.5),
+        _stroke(_hairline),
+      );
+    }
+    _paintStage(
+      canvas,
+      ui.Rect.fromLTRB(cell.left + 1, 82, cell.right - 1, footerTop - 1),
+    );
+
+    final (index, api, title) = headers[i];
+    _text(
+      canvas,
+      [
+        (index, _mono(10.5, weight: 600, color: _accent)),
+        ('   $api', _mono(10.5, color: _muted)),
+      ],
+      x: cell.left + _pad,
+      baseline: 36,
+    );
+    _text(canvas, [(title, _serif(21))], x: cell.left + _pad, baseline: 63);
+  }
+  return cells;
+}
+
+void _paintFooterCode(ui.Canvas canvas, ui.Rect cell, List<_Span> spans) {
+  _text(canvas, spans, x: cell.left + _pad, baseline: cell.bottom - 17);
+}
+
+_Span _codeKey(String text) => (text, _mono(11.5, color: _muted));
+_Span _codeValue(String text, {bool highlight = true}) => (
+  text,
+  _mono(11.5, weight: highlight ? 600 : 450, color: highlight ? _accent : _ink),
+);
+
+/// A dimension callout: a pin on the measured band and a leader to a label.
+void _paintLeader(
   ui.Canvas canvas, {
-  required double cx,
-  required double top,
-  required String text,
-  ui.Color bg = _cardBg,
-  ui.Color border = _borderCol,
-  ui.Color textColor = _ink,
+  required ui.Offset pin,
+  required ui.Offset end,
+  required String name,
+  required String value,
+  required _Anchor anchor,
+  required double labelX,
+  required double baseline,
 }) {
-  final builder =
-      ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.center))
-        ..pushStyle(
-          ui.TextStyle(
-            fontFamily: 'StudioMono',
-            fontSize: 10.5,
-            fontWeight: ui.FontWeight.w600,
-            color: textColor,
-          ),
-        )
-        ..addText(text);
-  final paragraph = builder.build()
-    ..layout(const ui.ParagraphConstraints(width: 320));
-  final textW = paragraph.maxIntrinsicWidth;
-  final pillW = textW + 20;
-  const pillH = 22.0;
-  final rr = ui.RRect.fromRectAndRadius(
-    ui.Rect.fromLTWH(cx - pillW / 2, top, pillW, pillH),
-    const ui.Radius.circular(11),
+  canvas.drawLine(pin, end, _stroke(_ink));
+  canvas.drawCircle(pin, 3.0, ui.Paint()..color = _paper);
+  canvas.drawCircle(pin, 2.0, ui.Paint()..color = _ink);
+  _text(
+    canvas,
+    [('$name ', _mono(11, color: _muted)), (value, _mono(11, weight: 600))],
+    x: labelX,
+    baseline: baseline,
+    anchor: anchor,
   );
-  canvas.drawRRect(rr, ui.Paint()..color = bg);
-  canvas.drawRRect(
-    rr,
-    ui.Paint()
-      ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = border,
-  );
-  canvas.drawParagraph(paragraph, ui.Offset(cx - 160, top + 4.5));
 }
 
-void _paintBorderBox(
+void _paintDashedRRect(ui.Canvas canvas, ui.RRect rrect, ui.Paint paint) {
+  const dash = 3.0;
+  const gap = 3.0;
+  final path = ui.Path()..addRRect(rrect);
+  for (final metric in path.computeMetrics()) {
+    for (var d = 0.0; d < metric.length; d += dash + gap) {
+      canvas.drawPath(metric.extractPath(d, d + dash), paint);
+    }
+  }
+}
+
+void _paintShape(
   ui.Canvas canvas,
   ui.Rect rect,
   NonUniformBorder border,
-  ui.Color fillColor,
+  ui.Color fill,
 ) {
-  final fillPaint = ui.Paint()..color = fillColor;
-  border.paintInterior(canvas, rect, fillPaint);
+  border.paintInterior(canvas, rect, ui.Paint()..color = fill);
   border.paint(canvas, rect);
 }
 
-void _drawCheckBadge(
-  ui.Canvas canvas,
-  ui.Offset center,
-  double radius,
-  ui.Color bg,
-  ui.Color fg,
-) {
-  canvas.drawCircle(center, radius, ui.Paint()..color = bg);
-  final check = ui.Path()
-    ..moveTo(center.dx - radius * 0.42, center.dy + 0.3)
-    ..lineTo(center.dx - radius * 0.1, center.dy + radius * 0.34)
-    ..lineTo(center.dx + radius * 0.44, center.dy - radius * 0.32);
-  canvas.drawPath(
-    check,
-    ui.Paint()
-      ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..strokeCap = ui.StrokeCap.round
-      ..strokeJoin = ui.StrokeJoin.round
-      ..color = fg,
-  );
+double _ease(double x) {
+  final t = x.clamp(0.0, 1.0);
+  return t < 0.5 ? 4 * t * t * t : 1 - math.pow(-2 * t + 2, 3) / 2;
+}
+
+/// Splits the loop into [steps] equal beats that hold, then ease to the next.
+/// Returns the beat index and its eased transition progress.
+(int, double) _beat(double t, int steps, {double hold = 0.5}) {
+  final scaled = t * steps;
+  final step = scaled.floor() % steps;
+  final local = scaled - scaled.floor();
+  return (step, _ease((local - hold) / (1 - hold)));
+}
+
+/// Weight of [index] while a beat moves emphasis from `step` to `step + 1`.
+double _beatWeight(int index, int count, int step, double progress) {
+  if (index == step) return 1 - progress;
+  if (index == (step + 1) % count) return progress;
+  return 0;
 }
 
 Future<void> _savePng(
   ui.PictureRecorder recorder,
-  double width,
-  double height,
-  double dpr,
+  ui.Size size,
   String path,
 ) async {
   final picture = recorder.endRecording();
   final image = await picture.toImage(
-    (width * dpr).round(),
-    (height * dpr).round(),
+    (size.width * _dpr).round(),
+    (size.height * _dpr).round(),
   );
   final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
   File(path)
@@ -143,613 +286,403 @@ Future<void> _savePng(
   picture.dispose();
 }
 
+Future<void> _render(
+  ui.Size size,
+  String path,
+  void Function(ui.Canvas canvas) paint,
+) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = ui.Canvas(recorder)..scale(_dpr, _dpr);
+  paint(canvas);
+  await _savePng(recorder, size, path);
+}
+
+Future<void> _renderFrames(
+  ui.Size size,
+  String directory,
+  void Function(ui.Canvas canvas, double t) paint,
+) async {
+  for (var frame = 0; frame < _frames; frame++) {
+    final name = frame.toString().padLeft(4, '0');
+    await _render(
+      size,
+      '$directory/frame_$name.png',
+      (canvas) => paint(canvas, frame / _frames),
+    );
+  }
+}
+
 Future<void> _loadFonts() async {
-  Future<void> tryLoad(String family, String filePath) async {
-    final file = File(filePath);
-    if (!file.existsSync()) return;
-    final bytes = file.readAsBytesSync();
+  Future<void> load(String family, String path) async {
+    final file = File(path);
+    if (!file.existsSync()) {
+      throw StateError('Missing font for "$family": $path');
+    }
     final loader = FontLoader(family)
-      ..addFont(Future.value(ByteData.sublistView(bytes)));
+      ..addFont(Future.value(ByteData.sublistView(file.readAsBytesSync())));
     await loader.load();
   }
 
-  await tryLoad('StudioSans', '/System/Library/Fonts/SFNS.ttf');
-  await tryLoad('StudioMono', '/System/Library/Fonts/SFNSMono.ttf');
+  await load('Serif', '/System/Library/Fonts/NewYork.ttf');
+  await load('Sans', '/System/Library/Fonts/SFNS.ttf');
+  await load('Mono', '/System/Library/Fonts/SFNSMono.ttf');
 }
 
-void _renderHeroSpecimen(ui.Canvas canvas) {
-  // 1. Top specimen: Tactile 3D CTA button (`bottomWidth`)
-  const btnRect = ui.Rect.fromLTWH(472, 34, 248, 56);
-  const btnBorder = NonUniformBorder(
-    leftWidth: 2.0,
-    topWidth: 1.5,
-    rightWidth: 2.0,
-    bottomWidth: 8.5,
-    color: ui.Color(0xFF0F766E),
-    strokeAlign: BorderSide.strokeAlignInside,
-    borderRadius: BorderRadius.all(Radius.circular(16)),
+const ui.Size _heroSize = ui.Size(_width, 264);
+
+void _paintHero(ui.Canvas canvas) {
+  _paintSheet(canvas, _heroSize);
+  _paintStage(canvas, const ui.Rect.fromLTRB(400, 1, _width - 1, 263));
+  canvas.drawLine(
+    const ui.Offset(400, 0.5),
+    const ui.Offset(400, 263.5),
+    _stroke(_hairline),
   );
-  _paintBorderBox(canvas, btnRect, btnBorder, const ui.Color(0xFF14B8A6));
-  _drawCheckBadge(
+
+  _text(
     canvas,
-    ui.Offset(btnRect.left + 60, btnRect.center.dy - 3),
-    10.0,
-    const ui.Color(0x33FFFFFF),
-    const ui.Color(0xFFFFFFFF),
+    [
+      ('●  ', _mono(9, color: _accent)),
+      ('non_uniform_border', _mono(11, color: _muted)),
+    ],
+    x: 40,
+    baseline: 56,
   );
-  _drawText(
+  _text(canvas, [('NonUniformBorder', _serif(36))], x: 38, baseline: 104);
+  _text(
     canvas,
-    'Publish v1.0',
-    ui.Offset(btnRect.left + 80, btnRect.center.dy - 12),
-    maxWidth: 150,
-    style: ui.TextStyle(
-      fontFamily: 'StudioSans',
-      fontSize: 15,
-      fontWeight: ui.FontWeight.w700,
-      color: const ui.Color(0xFFFFFFFF),
+    [('Give every side its own width,', _sans(15.5, color: _muted))],
+    x: 40,
+    baseline: 140,
+  );
+  _text(
+    canvas,
+    [('and keep your borderRadius.', _sans(15.5, color: _muted))],
+    x: 40,
+    baseline: 162,
+  );
+
+  canvas.drawLine(
+    const ui.Offset(40, 194),
+    const ui.Offset(360, 194),
+    _stroke(_hairline),
+  );
+  _text(
+    canvas,
+    [
+      ('NonUniformBorder', _mono(11.5)),
+      ('(', _mono(11.5, color: _muted)),
+      ('bottomWidth: ', _mono(11.5, color: _muted)),
+      ('16', _mono(11.5, weight: 600, color: _accent)),
+      (', …)', _mono(11.5, color: _muted)),
+    ],
+    x: 40,
+    baseline: 222,
+  );
+
+  const specimen = ui.Rect.fromLTWH(504, 82, 160, 100);
+  const border = NonUniformBorder(
+    leftWidth: 8,
+    topWidth: 2,
+    rightWidth: 4,
+    bottomWidth: 16,
+    color: _accent,
+    borderRadius: BorderRadius.all(Radius.circular(24)),
+  );
+  _paintShape(canvas, specimen, border, _white);
+
+  final cx = specimen.center.dx;
+  final cy = specimen.center.dy;
+  _paintLeader(
+    canvas,
+    pin: ui.Offset(cx, specimen.top + 1),
+    end: ui.Offset(cx, specimen.top - 30),
+    name: 'top',
+    value: '2',
+    anchor: _Anchor.start,
+    labelX: cx + 8,
+    baseline: specimen.top - 26,
+  );
+  _paintLeader(
+    canvas,
+    pin: ui.Offset(cx, specimen.bottom - 8),
+    end: ui.Offset(cx, specimen.bottom + 30),
+    name: 'bottom',
+    value: '16',
+    anchor: _Anchor.start,
+    labelX: cx + 8,
+    baseline: specimen.bottom + 30,
+  );
+  _paintLeader(
+    canvas,
+    pin: ui.Offset(specimen.left + 4, cy),
+    end: ui.Offset(specimen.left - 28, cy),
+    name: 'left',
+    value: '8',
+    anchor: _Anchor.end,
+    labelX: specimen.left - 34,
+    baseline: cy + 4,
+  );
+  _paintLeader(
+    canvas,
+    pin: ui.Offset(specimen.right - 2, cy),
+    end: ui.Offset(specimen.right + 28, cy),
+    name: 'right',
+    value: '4',
+    anchor: _Anchor.start,
+    labelX: specimen.right + 34,
+    baseline: cy + 4,
+  );
+}
+
+const ui.Size _showcaseSize = ui.Size(_width, 300);
+
+void _paintShowcase(ui.Canvas canvas, double t) {
+  final cells = _paintCells(canvas, _showcaseSize, const [
+    ('01', 'bottomWidth', 'Press depth'),
+    ('02', 'leftWidth + lerp', 'Active rail'),
+  ]);
+  _paintKeycap(canvas, cells[0], t);
+  _paintRail(canvas, cells[1], t);
+}
+
+void _paintKeycap(ui.Canvas canvas, ui.Rect cell, double t) {
+  final (step, progress) = _beat(t, 4, hold: 0.55);
+  final press = step.isEven ? progress : 1 - progress;
+
+  const restDepth = 12.0;
+  const pressedDepth = 3.0;
+  final depth = ui.lerpDouble(restDepth, pressedDepth, press)!;
+  const base = 202.0;
+  final rect = ui.Rect.fromLTRB(
+    cell.left + 64,
+    base - 66 + (restDepth - depth),
+    cell.left + 252,
+    base,
+  );
+  _paintShape(
+    canvas,
+    rect,
+    NonUniformBorder(
+      leftWidth: 1.5,
+      topWidth: 1.5,
+      rightWidth: 1.5,
+      bottomWidth: depth,
+      color: _accentDeep,
+      borderRadius: const BorderRadius.all(Radius.circular(16)),
     ),
+    ui.Color.lerp(_accent, const ui.Color(0xFFD24A26), press)!,
   );
-
-  // 2. Bottom specimen: Active accent card (`leftWidth` + asymmetric radii)
-  const calloutRect = ui.Rect.fromLTWH(472, 106, 248, 72);
-  const calloutBorder = NonUniformBorder(
-    leftWidth: 8.5,
-    topWidth: 1.5,
-    rightWidth: 1.5,
-    bottomWidth: 1.5,
-    color: ui.Color(0xFF38BDF8),
-    strokeAlign: BorderSide.strokeAlignInside,
-    borderRadius: BorderRadius.horizontal(
-      left: Radius.circular(16),
-      right: Radius.circular(14),
-    ),
-  );
-  _paintBorderBox(
+  final faceCenter = (rect.top + rect.bottom - depth) / 2;
+  _text(
     canvas,
-    calloutRect,
-    calloutBorder,
-    const ui.Color(0xFF16202F),
+    [('Continue  →', _sans(15, weight: 600, color: _white))],
+    x: rect.center.dx,
+    baseline: faceCenter + 5,
+    anchor: _Anchor.center,
   );
-  _drawText(
+  final pinY = rect.bottom - depth / 2;
+  _paintLeader(
     canvas,
-    'Active Navigation Item',
-    ui.Offset(calloutRect.left + 22, calloutRect.top + 16),
-    maxWidth: 210,
-    style: ui.TextStyle(
-      fontFamily: 'StudioSans',
-      fontSize: 13.5,
-      fontWeight: ui.FontWeight.w700,
-      color: const ui.Color(0xFFF0F9FF),
-    ),
+    pin: ui.Offset(rect.right - 32, pinY),
+    end: ui.Offset(rect.right + 20, pinY),
+    name: 'bottom',
+    value: _fixed(depth, 0),
+    anchor: _Anchor.start,
+    labelX: rect.right + 26,
+    baseline: pinY + 4,
   );
-  _drawText(
-    canvas,
-    'left: 8.5  ·  else: 1.5',
-    ui.Offset(calloutRect.left + 22, calloutRect.top + 40),
-    maxWidth: 210,
-    style: ui.TextStyle(
-      fontFamily: 'StudioMono',
-      fontSize: 10.5,
-      fontWeight: ui.FontWeight.w500,
-      color: const ui.Color(0xFF7DD3FC),
-    ),
-  );
+
+  _paintFooterCode(canvas, cell, [
+    _codeKey('bottomWidth: '),
+    _codeValue(_fixed(depth, 1)),
+  ]);
 }
 
-double _easeInOutCubic(double x) {
-  final t = x.clamp(0.0, 1.0);
-  return t < 0.5 ? 4 * t * t * t : 1 - math.pow(-2 * t + 2, 3) / 2;
-}
+void _paintRail(ui.Canvas canvas, ui.Rect cell, double t) {
+  const items = [('Inbox', '24'), ('Drafts', '3'), ('Archive', '—')];
+  final (step, progress) = _beat(t, items.length, hold: 0.55);
 
-double _beatProgress(double local) {
-  if (local < 0.34) return 0.0;
-  if (local < 0.56) return _easeInOutCubic((local - 0.34) / 0.22);
-  return 1.0;
-}
-
-double _segmentedSwitch(double t) {
-  if (t < 0.5) {
-    return _beatProgress(t * 2.0);
-  }
-  return 1.0 - _beatProgress((t - 0.5) * 2.0);
-}
-
-double _buttonClickCurve(double t) {
-  final local = (t * 2.0) % 1.0;
-  if (local < 0.24) return 0.0;
-  if (local < 0.36) return _easeInOutCubic((local - 0.24) / 0.12);
-  if (local < 0.50) return 1.0;
-  if (local < 0.66) return 1.0 - _easeInOutCubic((local - 0.50) / 0.16);
-  return 0.0;
-}
-
-void _drawCardChrome(
-  ui.Canvas canvas,
-  ui.Rect cardRect,
-  String title,
-  String subtitle,
-) {
-  final rr = ui.RRect.fromRectAndRadius(cardRect, const ui.Radius.circular(18));
-  canvas.drawRRect(rr, ui.Paint()..color = _cardBg);
-  canvas.drawRRect(
-    rr,
-    ui.Paint()
-      ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = _borderCol,
-  );
-  _drawText(
-    canvas,
-    title,
-    ui.Offset(cardRect.center.dx, cardRect.top + 16),
-    align: ui.TextAlign.center,
-    maxWidth: cardRect.width - 24,
-    style: ui.TextStyle(
-      fontFamily: 'StudioSans',
-      fontSize: 17,
-      fontWeight: ui.FontWeight.w700,
-      color: _ink,
-      letterSpacing: -0.2,
-    ),
-  );
-  _drawText(
-    canvas,
-    subtitle,
-    ui.Offset(cardRect.center.dx, cardRect.top + 39),
-    align: ui.TextAlign.center,
-    maxWidth: cardRect.width - 24,
-    style: ui.TextStyle(
-      fontFamily: 'StudioSans',
-      fontSize: 12,
-      fontWeight: ui.FontWeight.w500,
-      color: _inkMuted,
-    ),
-  );
-}
-
-void _drawMenuRow(
-  ui.Canvas canvas, {
-  required ui.Rect rect,
-  required double activeWeight,
-  required String title,
-  required String subtitle,
-}) {
   const idle = NonUniformBorder.all(
-    width: 1.25,
-    color: ui.Color(0xFFE2E0D8),
-    strokeAlign: BorderSide.strokeAlignInside,
-    borderRadius: BorderRadius.all(Radius.circular(14)),
+    width: 1,
+    color: _hairline,
+    borderRadius: BorderRadius.all(Radius.circular(12)),
   );
   const active = NonUniformBorder(
-    leftWidth: 7.5,
+    leftWidth: 6,
     topWidth: 1.5,
     rightWidth: 1.5,
     bottomWidth: 1.5,
-    color: ui.Color(0xFF4F46E5),
-    strokeAlign: BorderSide.strokeAlignInside,
-    borderRadius: BorderRadius.horizontal(
-      left: Radius.circular(15),
-      right: Radius.circular(14),
-    ),
+    color: _accent,
+    borderRadius: BorderRadius.all(Radius.circular(12)),
   );
-  final border = NonUniformBorder.lerp(idle, active, activeWeight)!;
-  final fill = ui.Color.lerp(
-    const ui.Color(0xFFFFFFFF),
-    const ui.Color(0xFFEEF2FF),
-    activeWeight,
-  )!;
-  _paintBorderBox(canvas, rect, border, fill);
 
-  final dotColor = ui.Color.lerp(
-    const ui.Color(0xFFCBD5E1),
-    const ui.Color(0xFF4F46E5),
-    activeWeight,
+  for (var i = 0; i < items.length; i++) {
+    final weight = _beatWeight(i, items.length, step, progress);
+    final row = ui.Rect.fromLTWH(
+      cell.left + _pad,
+      96 + i * 50.0,
+      cell.width - _pad * 2,
+      42,
+    );
+    final border = NonUniformBorder.lerp(idle, active, weight)!;
+    _paintShape(
+      canvas,
+      row,
+      border,
+      ui.Color.lerp(_white, _accentTint, weight)!,
+    );
+
+    final (label, count) = items[i];
+    _text(
+      canvas,
+      [(label, _sans(13.5, weight: 500))],
+      x: row.left + 14 + border.leftWidth,
+      baseline: row.center.dy + 4.5,
+    );
+    _text(
+      canvas,
+      [(count, _mono(11, color: ui.Color.lerp(_muted, _accentDeep, weight)!))],
+      x: row.right - 16,
+      baseline: row.center.dy + 4,
+      anchor: _Anchor.end,
+    );
+  }
+
+  _paintFooterCode(canvas, cell, [
+    ('NonUniformBorder', _mono(11.5)),
+    _codeKey('.lerp(idle, active, '),
+    _codeValue(_fixed(progress, 2)),
+    _codeKey(')'),
+  ]);
+}
+
+const ui.Size _propertiesSize = ui.Size(_width, 300);
+
+void _paintProperties(ui.Canvas canvas, double t) {
+  final cells = _paintCells(canvas, _propertiesSize, const [
+    ('03', 'left/top/right/bottomWidth', 'Every side'),
+    ('04', 'borderRadius', 'Any corner'),
+    ('05', 'strokeAlign', 'Inside or out'),
+  ]);
+  final (step, progress) = _beat(t, 4, hold: 0.45);
+  final weights = [
+    for (var i = 0; i < 4; i++) _beatWeight(i, 4, step, progress),
+  ];
+
+  ui.Rect specimenIn(ui.Rect cell) => ui.Rect.fromCenter(
+    center: ui.Offset(cell.center.dx, 166),
+    width: 136,
+    height: 80,
+  );
+
+  List<_Span> quad(List<String> names, List<double> values) {
+    final emphasized = weights.indexOf(weights.reduce(math.max));
+    return [
+      for (var i = 0; i < 4; i++) ...[
+        _codeKey('${i == 0 ? '' : '  '}${names[i]} '),
+        _codeValue(_fixed(values[i], 0), highlight: i == emphasized),
+      ],
+    ];
+  }
+
+  // Emphasis travels clockwise from the top side.
+  final widths = [for (final w in weights) 2 + 12 * w];
+  final (top, right, bottom, left) = (
+    widths[0],
+    widths[1],
+    widths[2],
+    widths[3],
+  );
+  _paintShape(
+    canvas,
+    specimenIn(cells[0]),
+    NonUniformBorder(
+      leftWidth: left,
+      topWidth: top,
+      rightWidth: right,
+      bottomWidth: bottom,
+      color: _accent,
+      borderRadius: const BorderRadius.all(Radius.circular(18)),
+    ),
+    _white,
+  );
+  _paintFooterCode(
+    canvas,
+    cells[0],
+    quad(['T', 'R', 'B', 'L'], [top, right, bottom, left]),
+  );
+
+  // Emphasis travels clockwise from the top-left corner.
+  final radii = [for (final w in weights) 6 + 32 * w];
+  _paintShape(
+    canvas,
+    specimenIn(cells[1]),
+    NonUniformBorder.symmetric(
+      verticalWidth: 7,
+      horizontalWidth: 2.5,
+      color: _accent,
+      borderRadius: BorderRadius.only(
+        topLeft: Radius.circular(radii[0]),
+        topRight: Radius.circular(radii[1]),
+        bottomRight: Radius.circular(radii[2]),
+        bottomLeft: Radius.circular(radii[3]),
+      ),
+    ),
+    _white,
+  );
+  _paintFooterCode(canvas, cells[1], quad(['TL', 'TR', 'BR', 'BL'], radii));
+
+  const alignStops = [-1.0, 0.0, 1.0, 0.0];
+  final align = ui.lerpDouble(
+    alignStops[step],
+    alignStops[(step + 1) % 4],
+    progress,
   )!;
-  canvas.drawCircle(
-    ui.Offset(rect.left + 22, rect.center.dy),
-    4.5,
-    ui.Paint()..color = dotColor,
-  );
-  _drawText(
+  final alignRect = specimenIn(cells[2]);
+  _paintShape(
     canvas,
-    title,
-    ui.Offset(rect.left + 36, rect.top + 10.5),
-    maxWidth: rect.width - 104,
-    style: ui.TextStyle(
-      fontFamily: 'StudioSans',
-      fontSize: 13.5,
-      fontWeight: activeWeight > 0.5 ? ui.FontWeight.w700 : ui.FontWeight.w600,
-      color: _ink,
+    alignRect,
+    NonUniformBorder.symmetric(
+      verticalWidth: 12,
+      horizontalWidth: 5,
+      color: _accent,
+      strokeAlign: align,
+      borderRadius: const BorderRadius.all(Radius.circular(18)),
     ),
+    _white,
   );
-  _drawText(
+  _paintDashedRRect(
     canvas,
-    subtitle,
-    ui.Offset(rect.left + 36, rect.top + 29),
-    maxWidth: rect.width - 52,
-    style: ui.TextStyle(
-      fontFamily: 'StudioSans',
-      fontSize: 11,
-      fontWeight: ui.FontWeight.w500,
-      color: _inkMuted,
-    ),
+    ui.RRect.fromRectAndRadius(alignRect, const ui.Radius.circular(18)),
+    _stroke(_ink),
   );
+  final alignName = align < -0.5
+      ? 'inside'
+      : align > 0.5
+      ? 'outside'
+      : 'center';
+  _paintFooterCode(canvas, cells[2], [
+    _codeKey('strokeAlign '),
+    _codeValue(_fixed(align, 2)),
+    _codeKey('  $alignName'),
+  ]);
 }
 
 void main() {
   test('render non_uniform_border README assets', () async {
     await _loadFonts();
 
-    // 1. Hero banner (`assets/NonUniformBorder.png`).
-    {
-      const width = 760.0;
-      const height = 212.0;
-      const dpr = 2.0;
-
-      final recorder = ui.PictureRecorder();
-      final canvas = ui.Canvas(recorder)..scale(dpr, dpr);
-
-      final bgRect = ui.RRect.fromRectAndRadius(
-        const ui.Rect.fromLTWH(2, 2, width - 4, height - 4),
-        const ui.Radius.circular(24),
-      );
-      canvas.drawRRect(bgRect, ui.Paint()..color = _obsidian);
-      canvas.drawRRect(
-        bgRect,
-        ui.Paint()
-          ..style = ui.PaintingStyle.stroke
-          ..strokeWidth = 1.5
-          ..color = _obsidianBorder,
-      );
-
-      _drawText(
-        canvas,
-        'NonUniformBorder',
-        const ui.Offset(36, 36),
-        maxWidth: 400,
-        style: ui.TextStyle(
-          fontFamily: 'StudioSans',
-          fontSize: 34,
-          fontWeight: ui.FontWeight.w800,
-          color: _cream,
-          letterSpacing: -0.8,
-        ),
-      );
-      _drawText(
-        canvas,
-        'Independent side widths, mixed BorderRadius corners,\n'
-        'strokeAlign, and smooth lerping — zero Border crashes.',
-        const ui.Offset(36, 84),
-        maxWidth: 406,
-        style: ui.TextStyle(
-          fontFamily: 'StudioSans',
-          fontSize: 13.5,
-          fontWeight: ui.FontWeight.w400,
-          color: _mutedCream,
-          height: 1.4,
-        ),
-      );
-
-      const tags = [
-        ('ShapeBorder', ui.Color(0xFF38BDF8)),
-        ('BorderRadius', ui.Color(0xFFFBBF24)),
-        ('strokeAlign', ui.Color(0xFF34D399)),
-        ('lerp()', ui.Color(0xFFA78BFA)),
-      ];
-      var tagX = 36.0;
-      for (final (label, dotColor) in tags) {
-        final b =
-            ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.left))
-              ..pushStyle(
-                ui.TextStyle(
-                  fontFamily: 'StudioMono',
-                  fontSize: 10.2,
-                  fontWeight: ui.FontWeight.w600,
-                  color: _cream,
-                ),
-              )
-              ..addText(label);
-        final p = b.build()..layout(const ui.ParagraphConstraints(width: 140));
-        final w = p.maxIntrinsicWidth + 24;
-        final pill = ui.RRect.fromRectAndRadius(
-          ui.Rect.fromLTWH(tagX, 150, w, 25),
-          const ui.Radius.circular(12.5),
-        );
-        canvas.drawRRect(pill, ui.Paint()..color = const ui.Color(0xFF1B1E27));
-        canvas.drawRRect(
-          pill,
-          ui.Paint()
-            ..style = ui.PaintingStyle.stroke
-            ..strokeWidth = 1.0
-            ..color = const ui.Color(0xFF2D3240),
-        );
-        canvas.drawCircle(
-          ui.Offset(tagX + 11, 162.5),
-          3.2,
-          ui.Paint()..color = dotColor,
-        );
-        canvas.drawParagraph(p, ui.Offset(tagX + 18, 156.0));
-        tagX += w + 6;
-      }
-
-      _renderHeroSpecimen(canvas);
-
-      await _savePng(
-        recorder,
-        width,
-        height,
-        dpr,
-        'assets/NonUniformBorder.png',
-      );
-    }
-
-    // 2. Animated 2-card showcase (`build/readme_frames/showcase`).
-    {
-      final outDir = Directory('build/readme_frames/showcase')
-        ..createSync(recursive: true);
-
-      const width = 760.0;
-      const height = 286.0;
-      const dpr = 2.0;
-      const frames = 90;
-
-      const outerPad = 16.0;
-      const gap = 16.0;
-      const cardW = (width - outerPad * 2 - gap) / 2;
-      const cardH = height - outerPad * 2;
-
-      const leftCard = ui.Rect.fromLTWH(outerPad, outerPad, cardW, cardH);
-      const rightCard = ui.Rect.fromLTWH(
-        outerPad + cardW + gap,
-        outerPad,
-        cardW,
-        cardH,
-      );
-
-      for (var frame = 0; frame < frames; frame++) {
-        final t = frame / frames;
-        final selectProgress = _segmentedSwitch(t);
-        final press = _buttonClickCurve(t);
-
-        final recorder = ui.PictureRecorder();
-        final canvas = ui.Canvas(recorder)..scale(dpr, dpr);
-        canvas.drawRect(
-          const ui.Rect.fromLTWH(0, 0, width, height),
-          ui.Paint()..color = _paper,
-        );
-
-        // Panel 1: Tactile 3D CTA Button (`bottomWidth`)
-        _drawCardChrome(
-          canvas,
-          leftCard,
-          'Tactile 3D Button',
-          'Keycap depth using bottomWidth + borderRadius',
-        );
-        final bottomW = ui.lerpDouble(11.5, 2.5, press)!;
-        final dy = press * 7.5;
-        final btnRect = ui.Rect.fromCenter(
-          center: ui.Offset(leftCard.center.dx, leftCard.top + 132 + dy),
-          width: 224,
-          height: 64 - (press * 5.0),
-        );
-        final btnBorder = NonUniformBorder(
-          leftWidth: 2.5,
-          topWidth: 2.0,
-          rightWidth: 2.5,
-          bottomWidth: bottomW,
-          color: const ui.Color(0xFF0F766E),
-          strokeAlign: BorderSide.strokeAlignInside,
-          borderRadius: const BorderRadius.all(Radius.circular(18)),
-        );
-        _paintBorderBox(
-          canvas,
-          btnRect,
-          btnBorder,
-          ui.Color.lerp(
-            const ui.Color(0xFF14B8A6),
-            const ui.Color(0xFF0D9488),
-            press,
-          )!,
-        );
-        _drawCheckBadge(
-          canvas,
-          ui.Offset(btnRect.left + 48, btnRect.center.dy - (bottomW - 2) * 0.3),
-          9.5,
-          const ui.Color(0x33FFFFFF),
-          const ui.Color(0xFFFFFFFF),
-        );
-        _drawText(
-          canvas,
-          'Switch Row',
-          ui.Offset(
-            btnRect.left + 72,
-            btnRect.center.dy - 9.5 - (bottomW - 2) * 0.3,
-          ),
-          maxWidth: 140,
-          style: ui.TextStyle(
-            fontFamily: 'StudioSans',
-            fontSize: 15,
-            fontWeight: ui.FontWeight.w700,
-            color: const ui.Color(0xFFFFFFFF),
-          ),
-        );
-        _drawPill(
-          canvas,
-          cx: leftCard.center.dx,
-          top: leftCard.bottom - 38,
-          text: 'top: 2.0  ·  bottom: ${bottomW.toStringAsFixed(1)}',
-        );
-
-        // Panel 2: Active Selection Bar (`leftWidth` sliding via lerp)
-        _drawCardChrome(
-          canvas,
-          rightCard,
-          'Active Selection Bar',
-          'Left accent bar + rounded corners via lerp',
-        );
-        final row1Rect = ui.Rect.fromLTWH(
-          rightCard.left + 26,
-          rightCard.top + 74,
-          rightCard.width - 52,
-          54,
-        );
-        final row2Rect = ui.Rect.fromLTWH(
-          rightCard.left + 26,
-          rightCard.top + 138,
-          rightCard.width - 52,
-          54,
-        );
-        _drawMenuRow(
-          canvas,
-          rect: row1Rect,
-          activeWeight: 1.0 - selectProgress,
-          title: 'General',
-          subtitle: 'Project & build settings',
-        );
-        _drawMenuRow(
-          canvas,
-          rect: row2Rect,
-          activeWeight: selectProgress,
-          title: 'Notifications',
-          subtitle: 'Alerts & webhook events',
-        );
-        final row1Left = ui.lerpDouble(7.5, 1.3, selectProgress)!;
-        final row2Left = ui.lerpDouble(1.3, 7.5, selectProgress)!;
-        _drawPill(
-          canvas,
-          cx: rightCard.center.dx,
-          top: rightCard.bottom - 38,
-          text:
-              'Row 1 L:${row1Left.toStringAsFixed(1)}  ·  Row 2 L:${row2Left.toStringAsFixed(1)}',
-        );
-
-        final name = frame.toString().padLeft(4, '0');
-        await _savePng(
-          recorder,
-          width,
-          height,
-          dpr,
-          '${outDir.path}/frame_$name.png',
-        );
-      }
-    }
-
-    // 3. Clean 3-column geometry & strokeAlign showcase (`build/readme_frames/example`).
-    {
-      final outDir = Directory('build/readme_frames/example')
-        ..createSync(recursive: true);
-
-      const width = 760.0;
-      const height = 256.0;
-      const dpr = 2.0;
-      const frames = 90;
-
-      const cardRect = ui.Rect.fromLTWH(16, 16, width - 32, height - 32);
-      const fillCol = ui.Color(0xFF012677);
-      const borderCol = ui.Color(0xFF00B4FC);
-
-      for (var frame = 0; frame < frames; frame++) {
-        final t = frame / frames;
-        final wave = _easeInOutCubic(0.5 - 0.5 * math.cos(2 * math.pi * t));
-        final align = -1.0 + 2.0 * wave;
-        final alignDisplay = align.abs() < 0.005 ? 0.0 : align;
-
-        final recorder = ui.PictureRecorder();
-        final canvas = ui.Canvas(recorder)..scale(dpr, dpr);
-        canvas.drawRect(
-          const ui.Rect.fromLTWH(0, 0, width, height),
-          ui.Paint()..color = _paper,
-        );
-        _drawCardChrome(
-          canvas,
-          cardRect,
-          'Widths, Radii & Stroke Alignment',
-          'Each property animates independently with zero Border crashes',
-        );
-
-        final lr = ui.lerpDouble(2.0, 15.0, wave)!;
-        final tb = ui.lerpDouble(15.0, 2.0, wave)!;
-        final rA = ui.lerpDouble(22.0, 4.0, wave)!;
-        final rB = ui.lerpDouble(4.0, 22.0, wave)!;
-
-        final specs = <(double, String, NonUniformBorder, String)>[
-          (
-            154.0,
-            'Side Widths',
-            NonUniformBorder.symmetric(
-              horizontalWidth: lr,
-              verticalWidth: tb,
-              color: borderCol,
-              strokeAlign: BorderSide.strokeAlignInside,
-              borderRadius: const BorderRadius.all(Radius.circular(14)),
-            ),
-            'H:${lr.round()}  V:${tb.round()}',
-          ),
-          (
-            380.0,
-            'Mixed Radii',
-            NonUniformBorder(
-              leftWidth: 3.5,
-              topWidth: 10.0,
-              rightWidth: 3.5,
-              bottomWidth: 10.0,
-              color: borderCol,
-              strokeAlign: BorderSide.strokeAlignInside,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(rA),
-                bottomRight: Radius.circular(rA),
-                topRight: Radius.circular(rB),
-                bottomLeft: Radius.circular(rB),
-              ),
-            ),
-            'TL/BR:${rA.round()}  TR/BL:${rB.round()}',
-          ),
-          (
-            606.0,
-            'Stroke Alignment',
-            NonUniformBorder.symmetric(
-              horizontalWidth: 4.0,
-              verticalWidth: 10.0,
-              color: borderCol.withValues(alpha: 0.72),
-              strokeAlign: align,
-              borderRadius: const BorderRadius.all(Radius.circular(14)),
-            ),
-            'strokeAlign: ${alignDisplay.toStringAsFixed(1)}',
-          ),
-        ];
-
-        for (final (cx, label, shape, pill) in specs) {
-          _drawText(
-            canvas,
-            label,
-            ui.Offset(cx, 74),
-            align: ui.TextAlign.center,
-            maxWidth: 180,
-            style: ui.TextStyle(
-              fontFamily: 'StudioSans',
-              fontSize: 12.5,
-              fontWeight: ui.FontWeight.w700,
-              color: _ink,
-            ),
-          );
-          final box = ui.Rect.fromCenter(
-            center: ui.Offset(cx, 138),
-            width: 128,
-            height: 60,
-          );
-          _paintBorderBox(canvas, box, shape, fillCol);
-          _drawPill(canvas, cx: cx, top: 196, text: pill);
-        }
-
-        final name = frame.toString().padLeft(4, '0');
-        await _savePng(
-          recorder,
-          width,
-          height,
-          dpr,
-          '${outDir.path}/frame_$name.png',
-        );
-      }
-    }
+    await _render(_heroSize, 'assets/NonUniformBorder.png', _paintHero);
+    await _renderFrames(
+      _showcaseSize,
+      'build/readme_frames/showcase',
+      _paintShowcase,
+    );
+    await _renderFrames(
+      _propertiesSize,
+      'build/readme_frames/example',
+      _paintProperties,
+    );
   });
 }
