@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bernaferrari/non_uniform_border/main/assets/NonUniformBorder.png" width="680" alt="NonUniformBorder for Flutter">
+  <img src="https://raw.githubusercontent.com/bernaferrari/non_uniform_border/main/assets/NonUniformBorder.png" width="100%" alt="NonUniformBorder for Flutter">
 </p>
 
 # Non-Uniform Border for Flutter
@@ -10,7 +10,7 @@ A lightweight `ShapeBorder` for Flutter that supports **independent side widths*
 > `BoxDecoration(border: Border(...), borderRadius: ...)` asserts at runtime unless every side has the same width and color. `NonUniformBorder` is a drop-in `ShapeBorder` for `ShapeDecoration` (and `Container` / `AnimatedContainer`) with zero crashes.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bernaferrari/non_uniform_border/main/assets/showcase.webp" width="680" alt="NonUniformBorder showcase of a keycap button pressed via bottomWidth and a selection rail animated with lerp">
+  <img src="https://raw.githubusercontent.com/bernaferrari/non_uniform_border/main/assets/showcase.webp" width="100%" alt="NonUniformBorder showcase of a keycap button pressed via bottomWidth and a selection rail animated with lerp">
 </p>
 
 ## Getting Started
@@ -21,7 +21,7 @@ Add `non_uniform_border` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  non_uniform_border: ^1.0.1
+  non_uniform_border: ^1.0.2
 ```
 
 ## Usage
@@ -67,13 +67,5 @@ Widget example = DecoratedBox(
 ## Properties in Motion
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bernaferrari/non_uniform_border/main/assets/example.webp" width="680" alt="Animated specimens of independent side widths, per-corner radii, and strokeAlign">
+  <img src="https://raw.githubusercontent.com/bernaferrari/non_uniform_border/main/assets/example.webp" width="100%" alt="Animated specimens of independent side widths, per-corner radii, and strokeAlign">
 </p>
-
-## Contributions
-
-Issues and pull requests are welcome on [GitHub](https://github.com/bernaferrari/non_uniform_border).
-
-## License
-
-Released under the [MIT License](LICENSE).

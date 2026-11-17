@@ -1,6 +1,6 @@
 name: non_uniform_border
 description: Provides a border class for Flutter that allows different widths for each side with a single color.
-version: 1.0.1
+version: 1.0.2
 homepage: https://github.com/bernaferrari/non_uniform_border
 repository: https://github.com/bernaferrari/non_uniform_border
 

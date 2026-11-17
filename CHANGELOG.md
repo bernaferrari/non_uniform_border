@@ -1,3 +1,9 @@
+## 1.0.2
+
+* Refresh the README animations and make all three images fill the available width.
+* Remove the Contributions and License sections from the README.
+* Adopt Dart primary constructor syntax. `NonUniformBorder.fromBorderSide` is now a factory constructor.
+
 ## 1.0.1
 
 * Raise minimum Dart SDK to `^3.14.0` and Flutter SDK to `>=3.50.0`.
